@@ -19,6 +19,7 @@ from app.services.tasks import (
     list_tasks,
     update_task,
 )
+from app.kafka.producer import send_task_event
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -34,7 +35,7 @@ def post_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> TaskOut:
-    return create_task(
+    task = create_task(
         db,
         title=payload.title,
         description=payload.description,
@@ -42,6 +43,11 @@ def post_task(
         priority=payload.priority,
         author_id=current_user.id,
     )
+    try:
+        send_task_event("TASK_CREATED", task.id, task.title)
+    except Exception:
+        pass
+    return task
 
 
 @router.get("/{task_id}", response_model=TaskOut)
@@ -63,11 +69,16 @@ def put_task(
     task = get_task(db, task_id)
     ensure_task_author(task, current_user.id)
     updates = payload.model_dump(exclude_unset=True)
-    return update_task(
+    updated = update_task(
         db,
         task,
         updates=updates,
     )
+    try:
+        send_task_event("TASK_UPDATED", updated.id, updated.title)
+    except Exception:
+        pass
+    return updated
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -78,8 +89,13 @@ def delete_task(
 ) -> Response:
     task = get_task(db, task_id)
     ensure_task_author(task, current_user.id)
+    task_title = task.title
     db.delete(task)
     db.commit()
+    try:
+        send_task_event("TASK_DELETED", task_id, task_title)
+    except Exception:
+        pass
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

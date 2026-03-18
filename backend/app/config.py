@@ -14,5 +14,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=60 * 24, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")  # 24h
 
+    kafka_bootstrap_servers: str = Field(default="kafka:9092", validation_alias="KAFKA_BOOTSTRAP_SERVERS")
+
 
 settings = Settings()
